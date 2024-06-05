@@ -10,6 +10,16 @@
     "url": "https://github.com/rareprotocol/rare-bridge/issues"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "forge build",
+    "lint": "prettier --check 'contracts/**/*.sol' 'test/**/*.sol' && npx solhint 'contracts/**/*.sol'",
+    "prettier": "prettier --write 'contracts/**/*.sol' 'test/**/*.sol'",
+    "test": "forge test -vvv"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.8",
+    "prettier-plugin-solidity": "^1.3.1",
+    "solhint": "^5.0.1",
+    "solhint-plugin-prettier": "^0.0.5",
+    "solidity-coverage": "^0.8.12"
   }
 }
