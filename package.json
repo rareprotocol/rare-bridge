@@ -1,0 +1,15 @@
+{
+  "name": "rare-bridge",
+  "version": "1.0.0",
+  "description": "RARE Token Bridge",
+  "license": "MIT",
+  "repository": "git@github.com:rareprotocol/rare-bridge",
+  "author": "koteld",
+  "homepage": "https://github.com/rareprotocol/rare-bridge#README",
+  "bugs": {
+    "url": "https://github.com/rareprotocol/rare-bridge/issues"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}

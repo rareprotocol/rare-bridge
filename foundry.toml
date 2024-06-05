@@ -1,0 +1,11 @@
+[profile.default]
+src = 'contracts'
+out = 'out'
+libs = ['lib']
+optimizer = true
+optimizer_runs = 999
+solc_version = '0.8.24'
+remappings = [
+  '@chainlink/local/=lib/chainlink-local/',
+  '@chainlink/contracts-ccip/=lib/ccip/contracts/',
+]
