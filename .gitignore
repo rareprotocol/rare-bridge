@@ -1,10 +1,12 @@
 node_modules
+package-lock.json
 .env
 .env.enc
 .DS_Store
+.idea/*
 
 # Foundry files
-cache_forge/
+cache/
 out/
 
 # Ignores development broadcast logs
