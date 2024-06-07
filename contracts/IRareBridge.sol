@@ -8,18 +8,20 @@ interface IRareBridge {
 
   /// @notice Emitted when a message is sent to a destination chain.
   /// @param messageId The unique ID of the CCIP message.
-  /// @param sourceChainSelector The selector of the source chain.
-  /// @param receiver The address of the receiver on the destination chain.
+  /// @param destinationChainSelector The selector of the destination chain.
+  /// @param destinationChainRecipient The address of the recipient on the destination chain.
+  /// @param to The address of the token recipient on the destination chain.
   /// @param tokenAmount The RARE token amount that was transferred.
-  /// @param feeToken The token used to pay the fees.
   /// @param fees The amount of fees paid.
+  /// @param payFeesInLink True if fees were paid in LINK, false if paid in native.
   event MessageSent(
     bytes32 indexed messageId,
     uint64 indexed destinationChainSelector,
-    address receiver,
+    address indexed destinationChainRecipient,
+    address to,
     uint256 tokenAmount,
-    address feeToken,
-    uint256 fees
+    uint256 fees,
+    bool payFeesInLink
   );
 
   /// @notice Emitted when a message is received from another chain.

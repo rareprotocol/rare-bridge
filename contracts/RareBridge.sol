@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {OwnerIsCreator} from "@chainlink/contracts-ccip/src/v0.8/shared/access/OwnerIsCreator.sol";
 import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -17,15 +18,15 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
   // Allowlist of senders per chain
   mapping(uint64 => mapping(address => bool)) public allowlistedSenders;
 
-  // Mapping to set parameters of gasLimit on targetChains
+  // Mapping to gasLimit per destination chain
   mapping(uint64 => Client.EVMExtraArgsV1) public extraArgsPerChain;
 
-  IERC20 private s_linkToken;
-  IERC20 private s_rareToken;
+  address public s_linkToken;
+  address public s_rareToken;
 
   /// @dev Modifier that checks if the pair of a given chain selector and sender is allowlisted.
   /// @param _sourceChainSelector The selector of the source chain.
-  /// @param _sender The address of the sender.
+  /// @param _sourceChainSender The address of the sender.
   modifier onlyAllowlistedSender(uint64 _sourceChainSelector, address _sourceChainSender) {
     if (!allowlistedSenders[_sourceChainSelector][_sourceChainSender]) {
       revert NotInAllowlist(_sourceChainSelector, _sourceChainSender);
@@ -51,8 +52,8 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     if (_link == address(0)) revert ZeroAddressUnsupported();
     if (_rare == address(0)) revert ZeroAddressUnsupported();
 
-    s_linkToken = IERC20(_link);
-    s_rareToken = IERC20(_rare);
+    s_linkToken = _link;
+    s_rareToken = _rare;
   }
 
   /// @dev Updates the allowlist status of a destination chain for transactions.
@@ -77,11 +78,10 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     allowlistedSenders[_sourceChainSelector][_sourceChainSender] = allowed;
   }
 
-  /// @dev Set extraArgs per chain.
+  /// @dev Set extra args per destination chain.
   /// @notice This function can only be called by the owner.
-  /// @param _gasLimit to execute on a target chain.
-  /// @param _strict to stop incoming messages from same sender if target chain reverts
-  function setExtraArgs(uint64 _destinationChainSelector, uint256 _gasLimit, bool _strict) external onlyOwner {
+  /// @param _gasLimit to execute on a destination chain.
+  function setExtraArgs(uint64 _destinationChainSelector, uint256 _gasLimit) external onlyOwner {
     extraArgsPerChain[_destinationChainSelector].gasLimit = _gasLimit;
   }
 
@@ -140,8 +140,8 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     uint256 fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
 
     // Check for sufficient allowance and transfer the RARE tokens
-    if (s_rareToken.allowance(msg.sender, address(this)) < _amount) {
-      revert InsufficientRareAllowanceForSend(s_rareToken.allowance(msg.sender, address(this)), _amount);
+    if (IERC20(s_rareToken).allowance(msg.sender, address(this)) < _amount) {
+      revert InsufficientRareAllowanceForSend(IERC20(s_rareToken).allowance(msg.sender, address(this)), _amount);
     }
     if (!_handleTokensOnSend(msg.sender, _amount)) {
       revert FailedToHandleTokens(msg.sender, _amount);
@@ -151,13 +151,13 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
 
     // Send the CCIP message through the router and emit the returned CCIP message ID
     if (_payFeesInLink) {
-      if (s_linkToken.allowance(msg.sender, address(this)) < fee) {
-        revert InsufficientLinkAllowanceForFee(s_linkToken.allowance(msg.sender, address(this)), fee);
+      if (IERC20(s_linkToken).allowance(msg.sender, address(this)) < fee) {
+        revert InsufficientLinkAllowanceForFee(IERC20(s_linkToken).allowance(msg.sender, address(this)), fee);
       }
-      if (!s_linkToken.transferFrom(msg.sender, address(this), fee)) {
+      if (!IERC20(s_linkToken).transferFrom(msg.sender, address(this), fee)) {
         revert FailedToTransferLink();
       }
-      s_linkToken.approve(i_ccipRouter, fee);
+      IERC20(s_linkToken).approve(i_ccipRouter, fee);
       messageId = IRouterClient(i_ccipRouter).ccipSend(_destinationChainSelector, message);
     } else {
       // Ensure the user has sent enough ether to cover the fee
@@ -168,7 +168,7 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     }
 
     // Emit an event with message ID
-    emit MessageSent(messageId);
+    emit MessageSent(messageId, _destinationChainSelector, _destinationChainRecipient, _to, _amount, fee, _payFeesInLink);
   }
 
   /// @notice Internal ccipReceive function override.
@@ -192,11 +192,11 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     emit MessageReceived(message.messageId, message.sourceChainSelector, abi.decode(message.sender, (address)), amount);
   }
 
-  function _handleTokensOnSend(address _sender, uint256 _amount) internal virtual returns (bool success) {
+  function _handleTokensOnSend(address, uint256) internal virtual returns (bool success) {
     return false;
   }
 
-  function _handleTokensOnReceive(address _to, uint256 _amount) internal virtual returns (bool success) {
+  function _handleTokensOnReceive(address, uint256) internal virtual returns (bool success) {
     return false;
   }
 
