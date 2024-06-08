@@ -4,11 +4,11 @@ pragma solidity 0.8.24;
 import {RareBridge} from "./RareBridge.sol";
 import "./IERC20MintableBurnable.sol";
 
-/// @title Rare Bridge: Lock and Unlock
+/// @title Rare Bridge: Burn and Mint
 /// @notice The bridge that sends and receives RARE tokens and arbitrary messages.
-/// @dev This is the lock/unlock implementation of the RareBridge.
+/// @dev This is the burn/mint implementation of the RareBridge.
 /// @dev Made to be used with Chainlink CCIP.
-contract RareBridgeLockAndUnlock is RareBridge {
+contract RareBridgeBurnAndMint is RareBridge {
   constructor (address _router, address _link, address _rare) RareBridge(_router, _link, _rare) {}
 
   /// @notice Burn RARE tokens.
