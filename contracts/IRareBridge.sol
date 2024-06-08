@@ -56,7 +56,7 @@ interface IRareBridge {
   error NotInAllowlist(uint64 chainSelector, address account);
 
   /// @notice Emitted when _handleTokens returns false, it either failed or not implemented.
-  error FailedToHandleTokens(address account, uint256 amount);
+  error FailedToHandleTokens(address from, address to, uint256 amount);
 
   /// @notice Emitted when the LINK token allowance is not enough to cover fees.
   error InsufficientLinkAllowanceForFee(uint256 allowance, uint256 fee);

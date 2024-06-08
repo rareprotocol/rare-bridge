@@ -143,9 +143,8 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     if (IERC20(s_rareToken).allowance(msg.sender, address(this)) < _amount) {
       revert InsufficientRareAllowanceForSend(IERC20(s_rareToken).allowance(msg.sender, address(this)), _amount);
     }
-    if (!_handleTokensOnSend(msg.sender, _amount)) {
-      revert FailedToHandleTokens(msg.sender, _amount);
-    }
+
+    _handleTokensOnSend(msg.sender, _amount);
 
     bytes32 messageId;
 
@@ -168,7 +167,15 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     }
 
     // Emit an event with message ID
-    emit MessageSent(messageId, _destinationChainSelector, _destinationChainRecipient, _to, _amount, fee, _payFeesInLink);
+    emit MessageSent(
+      messageId,
+      _destinationChainSelector,
+      _destinationChainRecipient,
+      _to,
+      _amount,
+      fee,
+      _payFeesInLink
+    );
   }
 
   /// @notice Internal ccipReceive function override.
@@ -184,21 +191,15 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     // Decode the message data
     (address to, uint256 amount, ) = abi.decode(message.data, (address, uint256, bytes));
 
-    if (!_handleTokensOnReceive(to, amount)) {
-      revert FailedToHandleTokens(to, amount);
-    }
+    _handleTokensOnReceive(to, amount);
 
     // Emit an event with message details
     emit MessageReceived(message.messageId, message.sourceChainSelector, abi.decode(message.sender, (address)), amount);
   }
 
-  function _handleTokensOnSend(address, uint256) internal virtual returns (bool success) {
-    return false;
-  }
+  function _handleTokensOnSend(address, uint256) internal virtual;
 
-  function _handleTokensOnReceive(address, uint256) internal virtual returns (bool success) {
-    return false;
-  }
+  function _handleTokensOnReceive(address, uint256) internal virtual;
 
   /// @notice Fallback function to allow the contract to receive Ether.
   /// @dev This function has no function body, making it a default function for receiving Ether.
