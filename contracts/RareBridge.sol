@@ -1,17 +1,32 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {IAny2EVMMessageReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IAny2EVMMessageReceiver.sol";
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {OwnerIsCreator} from "@chainlink/contracts-ccip/src/v0.8/shared/access/OwnerIsCreator.sol";
-import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {CCIPReceiverUpgradable} from "./CCIPReceiverUpgradable.sol";
 import {IRareBridge} from "./IRareBridge.sol";
 
 /// @title RareBridge
 /// @notice The abstract RARE bridge contract that sends and receives RARE tokens and arbitrary messages.
 /// @dev Made to be used with Chainlink CCIP.
-abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
+/// @dev This contract is UUPS upgradeable.
+abstract contract RareBridge is
+  IRareBridge,
+  Initializable,
+  IAny2EVMMessageReceiver,
+  IERC165,
+  CCIPReceiverUpgradable,
+  PausableUpgradeable,
+  OwnableUpgradeable,
+  UUPSUpgradeable
+{
   // Mapping to keep track of allowlisted destination chains.
   mapping(uint64 => mapping(address => bool)) public allowlistedRecipients;
 
@@ -44,13 +59,25 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     _;
   }
 
-  /// @notice Constructor initializes the contract with the router address.
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor() {
+    _disableInitializers();
+  }
+
+  /// @notice Initializes the contract with the CCIP router, LINK and RARE address.
   /// @param _router The address of the CCIP Router.
   /// @param _link The address of the LINK Token.
   /// @param _rare The address of the RARE Token.
-  constructor(address _router, address _link, address _rare) CCIPReceiver(_router) {
+  /// @param admin The address of the RARE bridge administrator account.
+  function initialize(address _router, address _link, address _rare, address admin) public initializer {
+    if (_router == address(0)) revert ZeroAddressUnsupported();
     if (_link == address(0)) revert ZeroAddressUnsupported();
     if (_rare == address(0)) revert ZeroAddressUnsupported();
+
+    __CCIPReceiver_init(_router);
+    __Pausable_init();
+    __Ownable_init(admin);
+    __UUPSUpgradeable_init();
 
     s_linkToken = _link;
     s_rareToken = _rare;
@@ -100,7 +127,7 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     uint256 _amount,
     bytes calldata _data,
     bool _payFeesInLink
-  ) external view onlyAllowlistedRecipient(_destinationChainSelector, _destinationChainRecipient) returns (uint256) {
+  ) external view returns (uint256) {
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
       receiver: abi.encode(_destinationChainRecipient),
       data: abi.encode(_to, _amount, _data),
@@ -128,7 +155,7 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     uint256 _amount,
     bytes calldata _data,
     bool _payFeesInLink
-  ) external payable onlyAllowlistedRecipient(_destinationChainSelector, _destinationChainRecipient) {
+  ) external payable onlyAllowlistedRecipient(_destinationChainSelector, _destinationChainRecipient) whenNotPaused {
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
       receiver: abi.encode(_destinationChainRecipient),
       data: abi.encode(_to, _amount, _data),
@@ -222,4 +249,14 @@ abstract contract RareBridge is IRareBridge, CCIPReceiver, OwnerIsCreator {
     // Revert if the send failed, with information about the attempted transfer
     if (!sent) revert FailedToWithdrawEth(msg.sender, _beneficiary, amount);
   }
+
+  function pause() public onlyOwner {
+    _pause();
+  }
+
+  function unpause() public onlyOwner {
+    _unpause();
+  }
+
+  function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }

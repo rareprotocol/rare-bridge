@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IBurnMintERC20} from "@chainlink/contracts-ccip/src/v0.8/shared/token/ERC20/IBurnMintERC20.sol";
 import {RareBridge} from "./RareBridge.sol";
@@ -9,8 +9,6 @@ import {RareBridge} from "./RareBridge.sol";
 /// @dev This is the burn/mint implementation of the RareBridge.
 /// @dev Made to be used with Chainlink CCIP.
 contract RareBridgeBurnAndMint is RareBridge {
-  constructor(address _router, address _link, address _rare) RareBridge(_router, _link, _rare) {}
-
   /// @notice Burn RARE tokens.
   /// @param _sender The sender of RARE tokens.
   /// @param _amount The amount of RARE tokens to burn.
