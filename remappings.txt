@@ -3,3 +3,5 @@ forge-std/=lib/forge-std/src/
 @chainlink/contracts-ccip/=lib/ccip/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+openzeppelin-contracts-upgradeable/=lib/core/lib/openzeppelin-contracts-upgradeable/contracts/
+@rare/contracts/=lib/core/src/
