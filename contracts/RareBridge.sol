@@ -15,8 +15,7 @@ import {IRareBridge} from "./IRareBridge.sol";
 
 /// @title RareBridge
 /// @notice The abstract RARE bridge contract that sends and receives RARE tokens and arbitrary messages.
-/// @dev Made to be used with Chainlink CCIP.
-/// @dev This contract is UUPS upgradeable.
+/// @dev Made to be used with Chainlink CCIP. This contract is UUPS upgradeable.
 abstract contract RareBridge is
   IRareBridge,
   Initializable,
@@ -27,19 +26,19 @@ abstract contract RareBridge is
   OwnableUpgradeable,
   UUPSUpgradeable
 {
-  // Mapping to keep track of allowlisted destination chains.
+  // Mapping to keep track of allowlisted receivers per destination chain.
   mapping(uint64 => mapping(address => bool)) public allowlistedRecipients;
 
-  // Allowlist of senders per chain
+  // Mapping to keep track of allowlisted senders per source chain.
   mapping(uint64 => mapping(address => bool)) public allowlistedSenders;
 
-  // Mapping to gasLimit per destination chain
-  mapping(uint64 => Client.EVMExtraArgsV1) public extraArgsPerChain;
+  // Mapping to extraArgs per destination chain
+  mapping(uint64 => bytes) public extraArgsPerChain;
 
   address public s_linkToken;
   address public s_rareToken;
 
-  /// @dev Modifier that checks if the pair of a given chain selector and sender is allowlisted.
+  /// @notice Modifier that checks if the pair of a given chain selector and sender is allowlisted.
   /// @param _sourceChainSelector The selector of the source chain.
   /// @param _sourceChainSender The address of the sender.
   modifier onlyAllowlistedSender(uint64 _sourceChainSelector, address _sourceChainSender) {
@@ -49,7 +48,7 @@ abstract contract RareBridge is
     _;
   }
 
-  /// @dev Modifier that checks if the pair of a given chain selector and recipient is allowlisted.
+  /// @notice Modifier that checks if the pair of a given chain selector and recipient is allowlisted.
   /// @param _destinationChainSelector The selector of the destination chain.
   /// @param _destinationChainRecipient The address of the recipient.
   modifier onlyAllowlistedRecipient(uint64 _destinationChainSelector, address _destinationChainRecipient) {
@@ -64,7 +63,7 @@ abstract contract RareBridge is
     _disableInitializers();
   }
 
-  /// @notice Initializes the contract with the CCIP router, LINK and RARE address.
+  /// @notice Initializes the contract with the CCIP router, LINK, and RARE address.
   /// @param _router The address of the CCIP Router.
   /// @param _link The address of the LINK Token.
   /// @param _rare The address of the RARE Token.
@@ -83,11 +82,11 @@ abstract contract RareBridge is
     s_rareToken = _rare;
   }
 
-  /// @dev Updates the allowlist status of a destination chain for transactions.
-  /// @notice This function can only be called by the owner.
+  /// @notice Updates the allowlist status of a destination chain for transactions.
   /// @param _destinationChainSelector The selector of the destination chain.
   /// @param _destinationChainRecipient The address of the recipient to be updated.
-  /// @param allowed The allowlist status to be set for the destination chain.
+  /// @param allowed The allowlist status to be set for the pair of recipient and destination chain.
+  /// @dev This function can only be called by the owner.
   function allowlistRecipient(
     uint64 _destinationChainSelector,
     address _destinationChainRecipient,
@@ -96,20 +95,21 @@ abstract contract RareBridge is
     allowlistedRecipients[_destinationChainSelector][_destinationChainRecipient] = allowed;
   }
 
-  /// @dev Updates the allowlist status of a sender for transactions.
-  /// @notice This function can only be called by the owner.
+  /// @notice Updates the allowlist status of a sender for transactions.
   /// @param _sourceChainSelector The selector of a source chain.
   /// @param _sourceChainSender The address of the sender to be updated.
-  /// @param allowed The allowlist status to be set for the sender.
+  /// @param allowed The allowlist status to be set for the pair of sender and source chain.
+  /// @dev This function can only be called by the owner.
   function allowlistSender(uint64 _sourceChainSelector, address _sourceChainSender, bool allowed) external onlyOwner {
     allowlistedSenders[_sourceChainSelector][_sourceChainSender] = allowed;
   }
 
-  /// @dev Set extra args per destination chain.
   /// @notice This function can only be called by the owner.
-  /// @param _gasLimit to execute on a destination chain.
+  /// @param _destinationChainSelector The selector of the destination chain.
+  /// @param _gasLimit The gas limit to execute on a destination chain.
+  /// @dev Set extra args per destination chain.
   function setExtraArgs(uint64 _destinationChainSelector, uint256 _gasLimit) external onlyOwner {
-    extraArgsPerChain[_destinationChainSelector].gasLimit = _gasLimit;
+    extraArgsPerChain[_destinationChainSelector] = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: _gasLimit}));
   }
 
   /// @notice Calculates the estimated fee for sending a message.
@@ -132,7 +132,7 @@ abstract contract RareBridge is
       receiver: abi.encode(_destinationChainRecipient),
       data: abi.encode(_to, _amount, _data),
       tokenAmounts: new Client.EVMTokenAmount[](0),
-      extraArgs: Client._argsToBytes(extraArgsPerChain[_destinationChainSelector]),
+      extraArgs: extraArgsPerChain[_destinationChainSelector],
       feeToken: _payFeesInLink ? address(s_linkToken) : address(0)
     });
 
@@ -146,7 +146,7 @@ abstract contract RareBridge is
   /// @param _destinationChainRecipient The address of the recipient on the destination chain.
   /// @param _to The address of the token recipient on the destination chain.
   /// @param _amount The amount of RARE tokens to send.
-  /// @param _data The encoded call data to send to the recipient.
+  /// @param _data The encoded calldata to send to the recipient.
   /// @param _payFeesInLink Whether to pay the fees in LINK tokens.
   function send(
     uint64 _destinationChainSelector,
@@ -160,7 +160,7 @@ abstract contract RareBridge is
       receiver: abi.encode(_destinationChainRecipient),
       data: abi.encode(_to, _amount, _data),
       tokenAmounts: new Client.EVMTokenAmount[](0),
-      extraArgs: Client._argsToBytes(extraArgsPerChain[_destinationChainSelector]),
+      extraArgs: extraArgsPerChain[_destinationChainSelector],
       feeToken: _payFeesInLink ? s_linkToken : address(0)
     });
 
@@ -193,7 +193,7 @@ abstract contract RareBridge is
       messageId = IRouterClient(i_ccipRouter).ccipSend{value: fee}(_destinationChainSelector, message);
     }
 
-    // Emit an event with message ID
+    // Emit an event with message ID and message details
     emit MessageSent(
       messageId,
       _destinationChainSelector,
@@ -234,8 +234,8 @@ abstract contract RareBridge is
   receive() external payable {}
 
   /// @notice Allows the contract owner to withdraw the entire balance of Ether from the contract.
-  /// @dev This function reverts if there are no funds to withdraw or if the transfer fails.
   /// @param _beneficiary The address to which the Ether should be sent.
+  /// @dev This function reverts if there are no funds to withdraw or if the transfer fails.
   function withdraw(address payable _beneficiary) public onlyOwner {
     // Retrieve the balance of this contract
     uint256 amount = address(this).balance;
@@ -258,5 +258,8 @@ abstract contract RareBridge is
     _unpause();
   }
 
+  /// @notice Authorizes an upgrade to a new implementation.
+  /// @param newImplementation The address of the new implementation.
+  /// @dev This function can only be called by the owner.
   function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
