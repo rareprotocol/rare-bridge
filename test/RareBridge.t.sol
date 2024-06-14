@@ -36,20 +36,30 @@ contract RareTokenBridgeTest is Test {
   function setUp() public {
     rareToken = new SuperRareToken();
     rareToken.init(tokenOwner);
-    rareTokenL2 = new SuperRareTokenL2();
+
+    SuperRareTokenL2 rareTokenL2Impl = new SuperRareTokenL2();
+    ERC1967Proxy proxyRareTokenL2 = new ERC1967Proxy(
+      address(rareTokenL2Impl),
+      abi.encodeCall(
+        rareTokenL2Impl.initialize,
+        (admin)
+      )
+    );
+    rareTokenL2 = SuperRareTokenL2(address(proxyRareTokenL2));
 
     ccipLocalSimulator = new CCIPLocalSimulator();
     (
-      uint64 chainSelector_,
+      uint64 _chainSelector,
       IRouterClient sourceRouter,
       IRouterClient destinationRouter,
       ,
-      LinkToken linkToken_,
+      LinkToken _linkToken,
       ,
 
     ) = ccipLocalSimulator.configuration();
 
-    linkToken = linkToken_;
+    linkToken = _linkToken;
+    chainSelector = _chainSelector;
 
     MockCCIPRouter(address(sourceRouter)).setFee(ccipFee);
     MockCCIPRouter(address(destinationRouter)).setFee(ccipFee);
@@ -74,18 +84,18 @@ contract RareTokenBridgeTest is Test {
     );
     rareBridgeL2 = RareBridgeBurnAndMint(payable(address(proxyBnM)));
 
-    rareTokenL2.initialize(tokenOwnerL2, address(rareBridgeL2));
-
-    chainSelector = chainSelector_;
-
     vm.startPrank(admin);
+
+    rareTokenL2.grantRole(rareTokenL2.MINTER_ROLE(), address(rareBridgeL2));
+
     rareBridge.allowlistRecipient(chainSelector, address(rareBridgeL2), true);
     rareBridge.allowlistSender(chainSelector, address(rareBridgeL2), true);
+    rareBridge.setExtraArgs(chainSelector, 400_000);
+
     rareBridgeL2.allowlistRecipient(chainSelector, address(rareBridge), true);
     rareBridgeL2.allowlistSender(chainSelector, address(rareBridge), true);
-
-    rareBridge.setExtraArgs(chainSelector, 400_000);
     rareBridgeL2.setExtraArgs(chainSelector, 400_000);
+
     vm.stopPrank();
   }
 
