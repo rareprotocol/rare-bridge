@@ -24,15 +24,17 @@ interface IRareBridge {
     bool payFeesInLink
   );
 
-  /// @notice Emitted when a message is received from another chain.
+  /// @notice Emitted when a message is received from a sender chain.
   /// @param messageId The unique ID of the CCIP message.
   /// @param sourceChainSelector The selector of the source chain.
-  /// @param sender The address of the sender on the source chain.
+  /// @param sourceChainSender The address of the sender on the source chain.
+  /// @param to The address of the token recipient.
   /// @param tokenAmount The RARE token amount that was transferred.
   event MessageReceived(
     bytes32 indexed messageId,
     uint64 indexed sourceChainSelector,
-    address sender,
+    address indexed sourceChainSender,
+    address to,
     uint256 tokenAmount
   );
 

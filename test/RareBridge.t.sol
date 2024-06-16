@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {SuperRareTokenL2} from "contracts/RareTokenL2.sol";
-import {IRareBridge} from "contracts/IRareBridge.sol";
+import {IRareBridge} from "../contracts/interfaces/IRareBridge.sol";
 import {RareBridge} from "contracts/RareBridge.sol";
 import {RareBridgeBurnAndMint} from "contracts/RareBridgeBurnAndMint.sol";
 import {RareBridgeLockAndUnlock} from "contracts/RareBridgeLockAndUnlock.sol";
@@ -156,6 +156,12 @@ contract RareTokenBridgeTest is Test {
 
     linkToken.approve(address(rareBridge), fee);
     rareToken.approve(address(rareBridge), amountToSend);
+
+    vm.expectEmit(false, true, true, true, address(rareBridgeL2));
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge), tokenOwnerL2, amountToSend);
+    vm.expectEmit(false, true, true, true, address(rareBridge));
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, fee, payFeesInLink);
+
     rareBridge.send(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, payFeesInLink);
 
     assertEq(rareToken.balanceOf(tokenOwner), initialBalance - amountToSend);
@@ -182,6 +188,12 @@ contract RareTokenBridgeTest is Test {
 
     vm.deal(address(tokenOwner), fee);
     rareToken.approve(address(rareBridge), amountToSend);
+
+    vm.expectEmit(false, true, true, true, address(rareBridgeL2));
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge), tokenOwnerL2, amountToSend);
+    vm.expectEmit(false, true, true, true, address(rareBridge));
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, fee, payFeesInLink);
+
     rareBridge.send{value: fee}(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, payFeesInLink);
 
     assertEq(rareToken.balanceOf(tokenOwner), initialBalance - amountToSend);
@@ -215,8 +227,13 @@ contract RareTokenBridgeTest is Test {
     ccipLocalSimulator.requestLinkFromFaucet(address(tokenOwnerL2), fee);
 
     linkToken.approve(address(rareBridgeL2), fee);
-
     rareTokenL2.approve(address(rareBridgeL2), amountToSend);
+
+    vm.expectEmit(false, true, true, true, address(rareBridge));
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2), tokenOwner, amountToSend);
+    vm.expectEmit(false, true, true, true, address(rareBridgeL2));
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), tokenOwner, amountToSend, fee, payFeesInLink);
+
     rareBridgeL2.send(chainSelector, address(rareBridge), tokenOwner, amountToSend, data, payFeesInLink);
 
     assertEq(rareToken.balanceOf(tokenOwner), initialBalance);
@@ -249,6 +266,12 @@ contract RareTokenBridgeTest is Test {
 
     vm.deal(address(tokenOwnerL2), fee);
     rareTokenL2.approve(address(rareBridgeL2), amountToSend);
+
+    vm.expectEmit(false, true, true, true, address(rareBridge));
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2), tokenOwner, amountToSend);
+    vm.expectEmit(false, true, true, true, address(rareBridgeL2));
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), tokenOwner, amountToSend, fee, payFeesInLink);
+
     rareBridgeL2.send{value: fee}(chainSelector, address(rareBridge), tokenOwner, amountToSend, data, payFeesInLink);
 
     assertEq(rareToken.balanceOf(tokenOwner), initialBalance);

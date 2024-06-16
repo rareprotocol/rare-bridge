@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {CCIPReceiverUpgradable} from "./CCIPReceiverUpgradable.sol";
-import {IRareBridge} from "./IRareBridge.sol";
+import {IRareBridge} from "./interfaces/IRareBridge.sol";
 
 /// @title RareBridge
 /// @notice The abstract RARE bridge contract that sends and receives RARE tokens and arbitrary messages.
@@ -221,7 +221,7 @@ abstract contract RareBridge is
     _handleTokensOnReceive(to, amount);
 
     // Emit an event with message details
-    emit MessageReceived(message.messageId, message.sourceChainSelector, abi.decode(message.sender, (address)), amount);
+    emit MessageReceived(message.messageId, message.sourceChainSelector, abi.decode(message.sender, (address)), to, amount);
   }
 
   function _handleTokensOnSend(address, uint256) internal virtual;
