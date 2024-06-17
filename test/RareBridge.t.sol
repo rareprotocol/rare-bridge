@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test, console2} from "forge-std/Test.sol";
 import {CCIPLocalSimulator, IRouterClient, LinkToken, BurnMintERC677Helper} from "@chainlink/local/src/ccip/CCIPLocalSimulator.sol";
 import {MockCCIPRouter} from "@chainlink/contracts-ccip/src/v0.8/ccip/test/mocks/MockRouter.sol";
+import {EVM2EVMOnRamp} from "@chainlink/contracts-ccip/src/v0.8/ccip/onRamp/EVM2EVMOnRamp.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -40,10 +41,7 @@ contract RareTokenBridgeTest is Test {
     SuperRareTokenL2 rareTokenL2Impl = new SuperRareTokenL2();
     ERC1967Proxy proxyRareTokenL2 = new ERC1967Proxy(
       address(rareTokenL2Impl),
-      abi.encodeCall(
-        rareTokenL2Impl.initialize,
-        (admin)
-      )
+      abi.encodeCall(rareTokenL2Impl.initialize, (admin))
     );
     rareTokenL2 = SuperRareTokenL2(address(proxyRareTokenL2));
 
@@ -90,18 +88,27 @@ contract RareTokenBridgeTest is Test {
 
     rareBridge.allowlistRecipient(chainSelector, address(rareBridgeL2), true);
     rareBridge.allowlistSender(chainSelector, address(rareBridgeL2), true);
-    rareBridge.setExtraArgs(chainSelector, 400_000);
+    rareBridge.setExtraArgs(chainSelector, 300000);
 
     rareBridgeL2.allowlistRecipient(chainSelector, address(rareBridge), true);
     rareBridgeL2.allowlistSender(chainSelector, address(rareBridge), true);
-    rareBridgeL2.setExtraArgs(chainSelector, 400_000);
+    rareBridgeL2.setExtraArgs(chainSelector, 300000);
 
     vm.stopPrank();
   }
 
-  function prepareScenario() private pure returns (uint256 amountToSend, bytes memory data) {
-    amountToSend = 0.001 ether;
-    data = abi.encode("");
+  function prepareScenario(uint256 numRecipients) public pure returns (address[] memory, uint256[] memory) {
+    address[] memory recipients = new address[](numRecipients);
+    uint256[] memory amounts = new uint256[](numRecipients);
+
+    uint shift = 10;
+
+    for (uint i = 0; i < numRecipients; ++i) {
+      recipients[i] = address(uint160(uint256(keccak256(abi.encodePacked(i + shift)))));
+      amounts[i] = 1 ether;
+    }
+
+    return (recipients, amounts);
   }
 
   function testAllowlistRecipient() public {
@@ -136,147 +143,289 @@ contract RareTokenBridgeTest is Test {
   }
 
   function testTransferL1toL2PayLINK() public {
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
     uint256 initialBalance = rareToken.balanceOf(tokenOwner);
     bool payFeesInLink = true;
-
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
 
     vm.startPrank(tokenOwner);
 
     uint256 fee = rareBridge.getFee(
       chainSelector,
       address(rareBridgeL2),
-      tokenOwnerL2,
-      amountToSend,
-      data,
+      abi.encode(recipients, amounts),
+      "",
       payFeesInLink
     );
 
     ccipLocalSimulator.requestLinkFromFaucet(address(tokenOwner), fee);
-
     linkToken.approve(address(rareBridge), fee);
-    rareToken.approve(address(rareBridge), amountToSend);
+
+    rareToken.approve(address(rareBridge), totalAmountToSend);
 
     vm.expectEmit(false, true, true, true, address(rareBridgeL2));
-    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge), tokenOwnerL2, amountToSend);
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge));
     vm.expectEmit(false, true, true, true, address(rareBridge));
-    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, fee, payFeesInLink);
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), fee, payFeesInLink);
 
-    rareBridge.send(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, payFeesInLink);
+    rareBridge.send(chainSelector, address(rareBridgeL2), abi.encode(recipients, amounts), "", payFeesInLink);
 
-    assertEq(rareToken.balanceOf(tokenOwner), initialBalance - amountToSend);
-    assertEq(rareToken.balanceOf(address(rareBridge)), amountToSend);
-    assertEq(rareTokenL2.balanceOf(tokenOwnerL2), amountToSend);
+    assertEq(rareToken.balanceOf(tokenOwner), initialBalance - totalAmountToSend);
+    assertEq(rareToken.balanceOf(address(rareBridge)), totalAmountToSend);
+
+    for (uint256 i = 0; i < recipients.length; ++i) {
+      assertEq(rareTokenL2.balanceOf(recipients[i]), amounts[i]);
+    }
   }
 
   function testTransferL1toL2PayETH() public {
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
     uint256 initialBalance = rareToken.balanceOf(tokenOwner);
     bool payFeesInLink = false;
-
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
 
     vm.startPrank(tokenOwner);
 
     uint256 fee = rareBridge.getFee(
       chainSelector,
       address(rareBridgeL2),
-      tokenOwnerL2,
-      amountToSend,
-      data,
+      abi.encode(recipients, amounts),
+      "",
       payFeesInLink
     );
 
     vm.deal(address(tokenOwner), fee);
-    rareToken.approve(address(rareBridge), amountToSend);
+
+    rareToken.approve(address(rareBridge), totalAmountToSend);
 
     vm.expectEmit(false, true, true, true, address(rareBridgeL2));
-    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge), tokenOwnerL2, amountToSend);
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge));
     vm.expectEmit(false, true, true, true, address(rareBridge));
-    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, fee, payFeesInLink);
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), fee, payFeesInLink);
 
-    rareBridge.send{value: fee}(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, payFeesInLink);
+    rareBridge.send{value: fee}(
+      chainSelector,
+      address(rareBridgeL2),
+      abi.encode(recipients, amounts),
+      "",
+      payFeesInLink
+    );
 
-    assertEq(rareToken.balanceOf(tokenOwner), initialBalance - amountToSend);
-    assertEq(rareToken.balanceOf(address(rareBridge)), amountToSend);
-    assertEq(rareTokenL2.balanceOf(tokenOwnerL2), amountToSend);
+    assertEq(rareToken.balanceOf(tokenOwner), initialBalance - totalAmountToSend);
+    assertEq(rareToken.balanceOf(address(rareBridge)), totalAmountToSend);
+
+    for (uint256 i = 0; i < recipients.length; ++i) {
+      assertEq(rareTokenL2.balanceOf(recipients[i]), amounts[i]);
+    }
   }
 
   function testTransferL2toL1PayLINK() public {
-    uint256 initialBalance = rareToken.balanceOf(tokenOwner);
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
     bool payFeesInLink = true;
 
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
-
     vm.prank(tokenOwner);
-    rareToken.transfer(address(rareBridge), amountToSend);
+    rareToken.transfer(address(rareBridge), totalAmountToSend);
 
     vm.prank(address(rareBridgeL2));
-    rareTokenL2.mint(tokenOwnerL2, amountToSend);
+    rareTokenL2.mint(tokenOwnerL2, totalAmountToSend);
 
     vm.startPrank(tokenOwnerL2);
 
     uint256 fee = rareBridgeL2.getFee(
       chainSelector,
       address(rareBridge),
-      tokenOwner,
-      amountToSend,
-      data,
+      abi.encode(recipients, amounts),
+      "",
       payFeesInLink
     );
 
     ccipLocalSimulator.requestLinkFromFaucet(address(tokenOwnerL2), fee);
 
     linkToken.approve(address(rareBridgeL2), fee);
-    rareTokenL2.approve(address(rareBridgeL2), amountToSend);
+    rareTokenL2.approve(address(rareBridgeL2), totalAmountToSend);
 
     vm.expectEmit(false, true, true, true, address(rareBridge));
-    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2), tokenOwner, amountToSend);
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2));
     vm.expectEmit(false, true, true, true, address(rareBridgeL2));
-    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), tokenOwner, amountToSend, fee, payFeesInLink);
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), fee, payFeesInLink);
 
-    rareBridgeL2.send(chainSelector, address(rareBridge), tokenOwner, amountToSend, data, payFeesInLink);
+    rareBridgeL2.send(chainSelector, address(rareBridge), abi.encode(recipients, amounts), "", payFeesInLink);
 
-    assertEq(rareToken.balanceOf(tokenOwner), initialBalance);
-    assertEq(rareToken.balanceOf(address(rareBridge)), 0);
     assertEq(rareTokenL2.balanceOf(tokenOwnerL2), 0);
+    assertEq(rareToken.balanceOf(address(rareBridge)), 0);
+
+    for (uint256 i = 0; i < recipients.length; ++i) {
+      assertEq(rareToken.balanceOf(recipients[i]), amounts[i]);
+    }
   }
 
   function testTransferL2toL1PayETH() public {
-    uint256 initialBalance = rareToken.balanceOf(tokenOwner);
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
     bool payFeesInLink = false;
 
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
-
     vm.prank(tokenOwner);
-    rareToken.transfer(address(rareBridge), amountToSend);
+    rareToken.transfer(address(rareBridge), totalAmountToSend);
 
     vm.prank(address(rareBridgeL2));
-    rareTokenL2.mint(tokenOwnerL2, amountToSend);
+    rareTokenL2.mint(tokenOwnerL2, totalAmountToSend);
 
     vm.startPrank(tokenOwnerL2);
 
     uint256 fee = rareBridgeL2.getFee(
       chainSelector,
       address(rareBridge),
-      tokenOwner,
-      amountToSend,
-      data,
+      abi.encode(recipients, amounts),
+      "",
       payFeesInLink
     );
 
     vm.deal(address(tokenOwnerL2), fee);
-    rareTokenL2.approve(address(rareBridgeL2), amountToSend);
+    rareTokenL2.approve(address(rareBridgeL2), totalAmountToSend);
 
     vm.expectEmit(false, true, true, true, address(rareBridge));
-    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2), tokenOwner, amountToSend);
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2));
     vm.expectEmit(false, true, true, true, address(rareBridgeL2));
-    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), tokenOwner, amountToSend, fee, payFeesInLink);
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), fee, payFeesInLink);
 
-    rareBridgeL2.send{value: fee}(chainSelector, address(rareBridge), tokenOwner, amountToSend, data, payFeesInLink);
+    rareBridgeL2.send{value: fee}(
+      chainSelector,
+      address(rareBridge),
+      abi.encode(recipients, amounts),
+      "",
+      payFeesInLink
+    );
 
-    assertEq(rareToken.balanceOf(tokenOwner), initialBalance);
-    assertEq(rareToken.balanceOf(address(rareBridge)), 0);
     assertEq(rareTokenL2.balanceOf(tokenOwnerL2), 0);
+    assertEq(rareToken.balanceOf(address(rareBridge)), 0);
+
+    for (uint256 i = 0; i < recipients.length; ++i) {
+      assertEq(rareToken.balanceOf(recipients[i]), amounts[i]);
+    }
+  }
+
+  // Fuzz
+
+  function testFuzzTransferL1toL2(uint256 numRecipients) public {
+    vm.assume(numRecipients > 0);
+    vm.assume(numRecipients < 30);
+
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(numRecipients);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
+    uint256 initialBalance = rareToken.balanceOf(tokenOwner);
+    bool payFeesInLink = true;
+
+    vm.prank(admin);
+    // TODO: estimate _CCIPReceive gas usage
+    rareBridge.setExtraArgs(chainSelector, 900_000);
+
+    vm.startPrank(tokenOwner);
+
+    uint256 fee = rareBridge.getFee(
+      chainSelector,
+      address(rareBridgeL2),
+      abi.encode(recipients, amounts),
+      "",
+      payFeesInLink
+    );
+
+    ccipLocalSimulator.requestLinkFromFaucet(address(tokenOwner), fee);
+    linkToken.approve(address(rareBridge), fee);
+
+    rareToken.approve(address(rareBridge), totalAmountToSend);
+
+    vm.expectEmit(false, true, true, true, address(rareBridgeL2));
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridge));
+    vm.expectEmit(false, true, true, true, address(rareBridge));
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridgeL2), fee, payFeesInLink);
+
+    rareBridge.send(chainSelector, address(rareBridgeL2), abi.encode(recipients, amounts), "", payFeesInLink);
+
+    assertEq(rareToken.balanceOf(tokenOwner), initialBalance - totalAmountToSend);
+    assertEq(rareToken.balanceOf(address(rareBridge)), totalAmountToSend);
+
+    for (uint256 i = 0; i < recipients.length; ++i) {
+      assertEq(rareTokenL2.balanceOf(recipients[i]), amounts[i]);
+    }
+  }
+
+  function testFuzzTransferL2toL1(uint256 numRecipients) public {
+    vm.assume(numRecipients > 0);
+    vm.assume(numRecipients < 30);
+
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(numRecipients);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
+    bool payFeesInLink = true;
+
+    vm.prank(admin);
+    // TODO: estimate _CCIPReceive gas usage
+    rareBridgeL2.setExtraArgs(chainSelector, 900_000);
+
+    vm.prank(tokenOwner);
+    rareToken.transfer(address(rareBridge), totalAmountToSend);
+
+    vm.prank(address(rareBridgeL2));
+    rareTokenL2.mint(tokenOwnerL2, totalAmountToSend);
+
+    vm.startPrank(tokenOwnerL2);
+
+    uint256 fee = rareBridgeL2.getFee(
+      chainSelector,
+      address(rareBridge),
+      abi.encode(recipients, amounts),
+      "",
+      payFeesInLink
+    );
+
+    ccipLocalSimulator.requestLinkFromFaucet(address(tokenOwnerL2), fee);
+
+    linkToken.approve(address(rareBridgeL2), fee);
+    rareTokenL2.approve(address(rareBridgeL2), totalAmountToSend);
+
+    vm.expectEmit(false, true, true, true, address(rareBridge));
+    emit IRareBridge.MessageReceived(0, chainSelector, address(rareBridgeL2));
+    vm.expectEmit(false, true, true, true, address(rareBridgeL2));
+    emit IRareBridge.MessageSent(0, chainSelector, address(rareBridge), fee, payFeesInLink);
+
+    rareBridgeL2.send(chainSelector, address(rareBridge), abi.encode(recipients, amounts), "", payFeesInLink);
+
+    assertEq(rareTokenL2.balanceOf(tokenOwnerL2), 0);
+    assertEq(rareToken.balanceOf(address(rareBridge)), 0);
+
+    for (uint256 i = 0; i < recipients.length; ++i) {
+      assertEq(rareToken.balanceOf(recipients[i]), amounts[i]);
+    }
   }
 
   // Upgrade tests
@@ -309,16 +458,6 @@ contract RareTokenBridgeTest is Test {
     rareBridge.initialize(router, address(linkToken), address(rareToken), admin);
   }
 
-  function testSendIfPaused() public {
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
-
-    vm.prank(admin);
-    rareBridge.pause();
-
-    vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-    rareBridge.send(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, true);
-  }
-
   function testAllowlistRecipientByNonOwner() public {
     vm.prank(tokenOwner);
     vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, (tokenOwner)));
@@ -332,7 +471,13 @@ contract RareTokenBridgeTest is Test {
   }
 
   function testSendTokensWithoutAllowance() public {
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
     vm.startPrank(tokenOwner);
 
     vm.mockCall(
@@ -341,32 +486,77 @@ contract RareTokenBridgeTest is Test {
       abi.encode(0) // No allowance
     );
 
-    vm.expectRevert(abi.encodeWithSelector(IRareBridge.InsufficientRareAllowanceForSend.selector, 0, amountToSend));
+    vm.expectRevert(
+      abi.encodeWithSelector(IRareBridge.InsufficientRareAllowanceForSend.selector, 0, totalAmountToSend)
+    );
 
-    rareBridge.send{value: 0}(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, false);
+    rareBridge.send{value: 0}(chainSelector, address(rareBridgeL2), abi.encode(recipients, amounts), "", false);
 
     vm.stopPrank();
   }
 
   function testSendTokensWhenPaused() public {
-    (uint256 amountToSend, bytes memory data) = prepareScenario();
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
 
     vm.prank(admin);
     rareBridge.pause();
 
     vm.startPrank(tokenOwner);
 
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
     vm.mockCall(
       address(rareToken),
       abi.encodeWithSelector(IERC20.allowance.selector, tokenOwner, address(rareBridge)),
-      abi.encode(amountToSend)
+      abi.encode(totalAmountToSend)
     );
 
     vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
 
-    rareBridge.send{value: 0}(chainSelector, address(rareBridgeL2), tokenOwnerL2, amountToSend, data, false);
+    rareBridge.send{value: 0}(chainSelector, address(rareBridgeL2), abi.encode(recipients, amounts), "", false);
 
     vm.stopPrank();
+  }
+
+  function testTransferWrongExtraArgs() public {
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    bytes memory wrongExtraArgs = "wrong";
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
+    bool payFeesInLink = true;
+
+    vm.startPrank(tokenOwner);
+
+    uint256 fee = rareBridge.getFee(
+      chainSelector,
+      address(rareBridgeL2),
+      abi.encode(recipients, amounts),
+      wrongExtraArgs,
+      payFeesInLink
+    );
+
+    ccipLocalSimulator.requestLinkFromFaucet(address(tokenOwner), fee);
+    linkToken.approve(address(rareBridge), fee);
+
+    rareToken.approve(address(rareBridge), totalAmountToSend);
+
+    vm.expectRevert(EVM2EVMOnRamp.InvalidExtraArgsTag.selector);
+
+    rareBridge.send(
+      chainSelector,
+      address(rareBridgeL2),
+      abi.encode(recipients, amounts),
+      wrongExtraArgs,
+      payFeesInLink
+    );
   }
 }
 
