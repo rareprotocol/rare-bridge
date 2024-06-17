@@ -32,7 +32,7 @@ abstract contract RareBridge is
   // Mapping to keep track of allowlisted senders per source chain.
   mapping(uint64 => mapping(address => bool)) public allowlistedSenders;
 
-  // Mapping to extraArgs per destination chain
+  // Mapping to keep track of extraArgs per destination chain
   mapping(uint64 => bytes) public extraArgsPerChain;
 
   address public s_linkToken;
@@ -40,7 +40,7 @@ abstract contract RareBridge is
 
   /// @notice Modifier that checks if the pair of a given chain selector and sender is allowlisted.
   /// @param _sourceChainSelector The selector of the source chain.
-  /// @param _sourceChainSender The address of the sender.
+  /// @param _sourceChainSender The address of the CCIP sender.
   modifier onlyAllowlistedSender(uint64 _sourceChainSelector, address _sourceChainSender) {
     if (!allowlistedSenders[_sourceChainSelector][_sourceChainSender]) {
       revert NotInAllowlist(_sourceChainSelector, _sourceChainSender);
@@ -50,7 +50,7 @@ abstract contract RareBridge is
 
   /// @notice Modifier that checks if the pair of a given chain selector and recipient is allowlisted.
   /// @param _destinationChainSelector The selector of the destination chain.
-  /// @param _destinationChainRecipient The address of the recipient.
+  /// @param _destinationChainRecipient The address of the CCIP recipient.
   modifier onlyAllowlistedRecipient(uint64 _destinationChainSelector, address _destinationChainRecipient) {
     if (!allowlistedRecipients[_destinationChainSelector][_destinationChainRecipient]) {
       revert NotInAllowlist(_destinationChainSelector, _destinationChainRecipient);
@@ -84,7 +84,7 @@ abstract contract RareBridge is
 
   /// @notice Updates the allowlist status of a destination chain for transactions.
   /// @param _destinationChainSelector The selector of the destination chain.
-  /// @param _destinationChainRecipient The address of the recipient to be updated.
+  /// @param _destinationChainRecipient The address of the CCIP recipient to be updated.
   /// @param allowed The allowlist status to be set for the pair of recipient and destination chain.
   /// @dev This function can only be called by the owner.
   function allowlistRecipient(
@@ -97,88 +97,106 @@ abstract contract RareBridge is
 
   /// @notice Updates the allowlist status of a sender for transactions.
   /// @param _sourceChainSelector The selector of a source chain.
-  /// @param _sourceChainSender The address of the sender to be updated.
+  /// @param _sourceChainSender The address of the CCIP sender to be updated.
   /// @param allowed The allowlist status to be set for the pair of sender and source chain.
   /// @dev This function can only be called by the owner.
   function allowlistSender(uint64 _sourceChainSelector, address _sourceChainSender, bool allowed) external onlyOwner {
     allowlistedSenders[_sourceChainSelector][_sourceChainSender] = allowed;
   }
 
-  /// @notice This function can only be called by the owner.
+  /// @notice Set sendTokens() extra args per destination chain.
   /// @param _destinationChainSelector The selector of the destination chain.
   /// @param _gasLimit The gas limit to execute on a destination chain.
-  /// @dev Set extra args per destination chain.
+  /// @dev This function can only be called by the owner.
   function setExtraArgs(uint64 _destinationChainSelector, uint256 _gasLimit) external onlyOwner {
     extraArgsPerChain[_destinationChainSelector] = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: _gasLimit}));
   }
 
   /// @notice Calculates the estimated fee for sending a message.
   /// @param _destinationChainSelector The selector of the destination chain.
-  /// @param _destinationChainRecipient The address of the recipient on the destination chain.
-  /// @param _to The address of the token recipient on the destination chain.
-  /// @param _amount The amount of RARE tokens to send.
-  /// @param _data The encoded call data to send to the recipient.
+  /// @param _destinationChainRecipient The address of the CCIP recipient on the destination chain.
+  /// @param _distributionData.
+  /// @param _extraArgs The encoded extra arguments for the message.
   /// @param _payFeesInLink Whether the fees will be paid in LINK tokens.
-  /// @return The estimated fee.
+  /// @return fee The estimated fee.
   function getFee(
     uint64 _destinationChainSelector,
     address _destinationChainRecipient,
-    address _to,
-    uint256 _amount,
-    bytes calldata _data,
+    bytes memory _distributionData,
+    bytes memory _extraArgs,
     bool _payFeesInLink
-  ) external view returns (uint256) {
+  ) external view returns (uint256 fee) {
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
       receiver: abi.encode(_destinationChainRecipient),
-      data: abi.encode(_to, _amount, _data),
+      data: _distributionData,
       tokenAmounts: new Client.EVMTokenAmount[](0),
-      extraArgs: extraArgsPerChain[_destinationChainSelector],
+      extraArgs: _extraArgs.length > 0 ? _extraArgs : extraArgsPerChain[_destinationChainSelector],
       feeToken: _payFeesInLink ? address(s_linkToken) : address(0)
     });
 
-    uint256 fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
-
-    return fee;
+    fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
   }
 
-  /// @notice Sends RARE tokens and calldata to a destination chain.
+  /// @notice Sends RARE tokens a destination chain.
   /// @param _destinationChainSelector The selector of the destination chain.
-  /// @param _destinationChainRecipient The address of the recipient on the destination chain.
-  /// @param _to The address of the token recipient on the destination chain.
-  /// @param _amount The amount of RARE tokens to send.
-  /// @param _data The encoded calldata to send to the recipient.
-  /// @param _payFeesInLink Whether to pay the fees in LINK tokens.
+  /// @param _destinationChainRecipient The address of the CCIP recipient on the destination chain.
+  /// @param _distributionData The encoded arrays of recipients and amounts.
+  /// @param _extraArgs The encoded extra arguments for the message.
+  /// @param _payFeesInLink Whether the fees will be paid in LINK tokens.
   function send(
     uint64 _destinationChainSelector,
     address _destinationChainRecipient,
-    address _to,
-    uint256 _amount,
-    bytes calldata _data,
+    bytes memory _distributionData,
+    bytes memory _extraArgs,
     bool _payFeesInLink
   ) external payable onlyAllowlistedRecipient(_destinationChainSelector, _destinationChainRecipient) whenNotPaused {
+    (address[] memory recipients, uint256[] memory amounts) = abi.decode(_distributionData, (address[], uint256[]));
+
+    if (recipients.length != amounts.length) {
+      revert RecipientsAndAmountsLengthMismatch();
+    }
+
+    // Calculate the total amount as the sum of the individual amounts
+    uint256 totalAmount = 0;
+
+    for (uint i = 0; i < amounts.length; ++i) {
+      totalAmount += amounts[i];
+    }
+
+    // Check for sufficient allowance and transfer the RARE tokens
+    uint256 allowance = IERC20(s_rareToken).allowance(msg.sender, address(this));
+    if (allowance < totalAmount) {
+      revert InsufficientRareAllowanceForSend(allowance, totalAmount);
+    }
+
+    _handleTokensOnSend(msg.sender, totalAmount);
+
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
       receiver: abi.encode(_destinationChainRecipient),
-      data: abi.encode(_to, _amount, _data),
+      data: _distributionData,
       tokenAmounts: new Client.EVMTokenAmount[](0),
-      extraArgs: extraArgsPerChain[_destinationChainSelector],
+      extraArgs: _extraArgs.length > 0 ? _extraArgs : extraArgsPerChain[_destinationChainSelector],
       feeToken: _payFeesInLink ? s_linkToken : address(0)
     });
 
-    uint256 fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
+    // Send the CCIP message through the router
+    (bytes32 messageId, uint256 fee) = _send(_destinationChainSelector, message, _payFeesInLink);
 
-    // Check for sufficient allowance and transfer the RARE tokens
-    if (IERC20(s_rareToken).allowance(msg.sender, address(this)) < _amount) {
-      revert InsufficientRareAllowanceForSend(IERC20(s_rareToken).allowance(msg.sender, address(this)), _amount);
-    }
+    // Emit an event with message ID and message details
+    emit MessageSent(messageId, _destinationChainSelector, _destinationChainRecipient, fee, _payFeesInLink);
+  }
 
-    _handleTokensOnSend(msg.sender, _amount);
+  function _send(
+    uint64 _destinationChainSelector,
+    Client.EVM2AnyMessage memory message,
+    bool _payFeesInLink
+  ) internal returns (bytes32 messageId, uint256 fee) {
+    fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
 
-    bytes32 messageId;
-
-    // Send the CCIP message through the router and emit the returned CCIP message ID
     if (_payFeesInLink) {
-      if (IERC20(s_linkToken).allowance(msg.sender, address(this)) < fee) {
-        revert InsufficientLinkAllowanceForFee(IERC20(s_linkToken).allowance(msg.sender, address(this)), fee);
+      uint256 linkAllowance = IERC20(s_linkToken).allowance(msg.sender, address(this));
+      if (linkAllowance < fee) {
+        revert InsufficientLinkAllowanceForFee(linkAllowance, fee);
       }
       if (!IERC20(s_linkToken).transferFrom(msg.sender, address(this), fee)) {
         revert FailedToTransferLink();
@@ -192,17 +210,6 @@ abstract contract RareBridge is
       }
       messageId = IRouterClient(i_ccipRouter).ccipSend{value: fee}(_destinationChainSelector, message);
     }
-
-    // Emit an event with message ID and message details
-    emit MessageSent(
-      messageId,
-      _destinationChainSelector,
-      _destinationChainRecipient,
-      _to,
-      _amount,
-      fee,
-      _payFeesInLink
-    );
   }
 
   /// @notice Internal ccipReceive function override.
@@ -215,13 +222,17 @@ abstract contract RareBridge is
     onlyRouter
     onlyAllowlistedSender(message.sourceChainSelector, abi.decode(message.sender, (address)))
   {
-    // Decode the message data
-    (address to, uint256 amount, ) = abi.decode(message.data, (address, uint256, bytes));
+    // Decode the distribution data
+    (address[] memory recipients, uint256[] memory amounts) = abi.decode(message.data, (address[], uint256[]));
 
-    _handleTokensOnReceive(to, amount);
+    // Process the token distribution
+    uint length = recipients.length;
+    for (uint i = 0; i < length; ++i) {
+      _handleTokensOnReceive(recipients[i], amounts[i]);
+    }
 
     // Emit an event with message details
-    emit MessageReceived(message.messageId, message.sourceChainSelector, abi.decode(message.sender, (address)), to, amount);
+    emit MessageReceived(message.messageId, message.sourceChainSelector, abi.decode(message.sender, (address)));
   }
 
   function _handleTokensOnSend(address, uint256) internal virtual;

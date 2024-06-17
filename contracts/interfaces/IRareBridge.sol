@@ -3,39 +3,53 @@ pragma solidity ^0.8.24;
 
 interface IRareBridge {
   /*//////////////////////////////////////////////////////////////////////////
+                              Structs
+  //////////////////////////////////////////////////////////////////////////*/
+
+  /// @notice The message parameters for sending to a destination chain.
+  /// @param _destinationChainSelector The selector of the destination chain.
+  /// @param _destinationChainRecipient The address of the recipient on the destination chain.
+  /// @param _to The address of the token recipient on the destination chain.
+  /// @param _amount The amount of RARE tokens to send.
+  /// @param _data The encoded calldata to send to the recipient.
+  /// @param _extraArgs The encoded extra arguments for the message.
+  /// @param _payFeesInLink Whether to pay the fees in LINK tokens.
+  struct SendParams {
+    uint64 destinationChainSelector;
+    address destinationChainRecipient;
+    address to;
+    uint256 amount;
+    bytes data;
+    bytes extraArgs;
+    bool payFeesInLink;
+  }
+
+  /*//////////////////////////////////////////////////////////////////////////
                               Events
   //////////////////////////////////////////////////////////////////////////*/
 
   /// @notice Emitted when a message is sent to a destination chain.
   /// @param messageId The unique ID of the CCIP message.
   /// @param destinationChainSelector The selector of the destination chain.
-  /// @param destinationChainRecipient The address of the recipient on the destination chain.
-  /// @param to The address of the token recipient on the destination chain.
-  /// @param tokenAmount The RARE token amount that was transferred.
-  /// @param fees The amount of fees paid.
+  /// @param destinationChainRecipient The address of the CCIP recipient on the destination chain.
+  /// @param fee The amount of fees paid.
   /// @param payFeesInLink True if fees were paid in LINK, false if paid in native.
   event MessageSent(
     bytes32 indexed messageId,
     uint64 indexed destinationChainSelector,
     address indexed destinationChainRecipient,
-    address to,
-    uint256 tokenAmount,
-    uint256 fees,
+    uint256 fee,
     bool payFeesInLink
   );
 
   /// @notice Emitted when a message is received from a sender chain.
   /// @param messageId The unique ID of the CCIP message.
   /// @param sourceChainSelector The selector of the source chain.
-  /// @param sourceChainSender The address of the sender on the source chain.
-  /// @param to The address of the token recipient.
-  /// @param tokenAmount The RARE token amount that was transferred.
+  /// @param sourceChainSender The address of the CCIP sender on the source chain.
   event MessageReceived(
     bytes32 indexed messageId,
     uint64 indexed sourceChainSelector,
-    address indexed sourceChainSender,
-    address to,
-    uint256 tokenAmount
+    address indexed sourceChainSender
   );
 
   /*//////////////////////////////////////////////////////////////////////////
@@ -71,4 +85,7 @@ interface IRareBridge {
 
   /// @notice Emitted when the RARE token allowance is not enough to send.
   error InsufficientRareAllowanceForSend(uint256 allowance, uint256 amount);
+
+  /// @notice Emitted when recipients array length does not match amounts array length.
+  error RecipientsAndAmountsLengthMismatch();
 }
