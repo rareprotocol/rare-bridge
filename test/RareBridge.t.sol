@@ -342,7 +342,7 @@ contract RareTokenBridgeTest is Test {
     bool payFeesInLink = true;
 
     vm.prank(admin);
-    // TODO: estimate _CCIPReceive gas usage
+    // NOTE: _CCIPReceive gas usage increases with the number of recipients
     rareBridge.setExtraArgs(chainSelector, 900_000);
 
     vm.startPrank(tokenOwner);
@@ -389,7 +389,7 @@ contract RareTokenBridgeTest is Test {
     bool payFeesInLink = true;
 
     vm.prank(admin);
-    // TODO: estimate _CCIPReceive gas usage
+    // NOTE: _CCIPReceive gas usage increases with the number of recipients
     rareBridgeL2.setExtraArgs(chainSelector, 900_000);
 
     vm.prank(tokenOwner);

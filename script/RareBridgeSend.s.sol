@@ -66,7 +66,13 @@ contract RareBridgeSend is Script {
 
     if (payFeesInLink) {
       IERC20(linkTokenAddress).approve(rareBridgeAddress, fee);
-      rareBridge.send(correspondingChainSelector, correspondingRareBridgeAddress, abi.encode(recipients, amounts), "", true);
+      rareBridge.send(
+        correspondingChainSelector,
+        correspondingRareBridgeAddress,
+        abi.encode(recipients, amounts),
+        "",
+        true
+      );
     } else {
       rareBridge.send{value: fee}(
         correspondingChainSelector,

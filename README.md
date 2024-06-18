@@ -114,7 +114,7 @@ Deploy and configure the `RareBridgeBurnAndMint` contract on the destination cha
 
 This script uses environment variables specified in [`.env.deployAndConfigureBridgeL2`](.env.deployAndConfigureBridgeL2) to configure the deployment process:
 - `CCIP_ROUTER_ADDRESS` - address of the Chainlink CCIP router on the destination chain.
-- `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the destination chain
+- `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the destination chain.
 - `CORRESPONDENT_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
 - `CORRESPONDENT_CHAIN_SELECTOR` - chain selector for the source chain.
 - `CORRESPONDENT_CHAIN_GAS_LIMIT` - gas limit for the `ccipReceive()` method on the source chain.
@@ -142,7 +142,7 @@ The script will:
 
 Configure the `RareBridge` contract on the source chain (Layer 1).
 
-This script uses environment variables specified in [`.env.configureBridgeL1`](.env.configureBridgeL1) to configure the deployment process:
+This script uses environment variables specified in [`.env.configureBridgeL1`](.env.configureBridgeL1):
 - `RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
 - `CORRESPONDENT_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the destination chain.
 - `CORRESPONDENT_CHAIN_SELECTOR` - chain selector for the destination chain.
@@ -164,9 +164,9 @@ The script will:
 
 Send tokens from the source chain (Layer 1) to the destination chain (Layer 2).
 
-This script uses environment variables specified in [`.env.sendTokensL1L2`](.env.sendTokensL1L2) to configure the deployment process:
+This script uses environment variables specified in [`.env.sendTokensL1L2`](.env.sendTokensL1L2):
 - `RARE_TOKEN_ADDRESS` - address of the Rare Token on the source chain.
-- `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the source chain
+- `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the source chain.
 - `RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
 - `CORRESPONDENT_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the destination chain.
 - `CORRESPONDENT_CHAIN_SELECTOR` - chain selector for the destination chain.
@@ -190,9 +190,9 @@ The script will:
 
 Send tokens from the destination chain (Layer 2) back to the source chain (Layer 1).
 
-This script uses environment variables specified in [`.env.sendTokensL2L1`](.env.sendTokensL2L1) to configure the deployment process:
+This script uses environment variables specified in [`.env.sendTokensL2L1`](.env.sendTokensL2L1):
 - `RARE_TOKEN_ADDRESS` - address of the Rare Token on the destination chain.
-- `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the destination chain
+- `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the destination chain.
 - `RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the destination chain.
 - `CORRESPONDENT_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
 - `CORRESPONDENT_CHAIN_SELECTOR` - chain selector for the source chain.
@@ -210,6 +210,33 @@ The script will:
    
    ```sh
    npm run sendTokensL2L1
+   ```
+
+#### 3. **Estimate CCIP Receiver gas usage**
+
+Estimate CCIP Receiver gas usage while sending a CCIP message to a destination chain.
+
+This script uses environment variables specified in [`.env.ccipReceiveEstimateGas`](.env.ccipReceiveEstimateGas):
+- `RPC_URL` - RPC URL of the destination chain.
+- `SOURCE_RARE_BRIDGE_ADDRESS` - whitelisted address of the Rare Bridge contract on the source chain.
+- `SOURCE_CHAIN_SELECTOR` - whitelisted chain selector for the source chain.
+- `CCIP_ROUTER_ADDRESS` - address of the Chainlink CCIP router on the destination chain.
+- `CCIP_RECEIVER_ADDRESS` - address of the CCIP Receiver contract (Rare Bridge) on the destination chain.
+- `AUTO_PREPARE_SCENARIO` - boolean indicating whether to prepare the scenario automatically (true) or manually (false).
+- `NUM_RECIPIENTS` - number of recipients to estimate gas for (if `AUTO_PREPARE_SCENARIO` is true).
+- `AMOUNTS` - comma-separated array of token amounts to send.
+- `RECIPIENTS` - comma-separated array of recipient addresses.
+
+The script will:
+1. Copy the `.env.ccipReceiveEstimateGas` template to `.env` for deployment-specific configurations.
+2. Fork the destination chain with the `RPC_URL` provided.
+3. Read or generate recipient addresses and token amounts based on the specified parameters. 
+4. Generate CCIP message with the specified parameters.
+5. Call the `ccipReceive` method on the Rare Bridge contract in a forked environment.
+6. Show the output in the console: gas usage, number of recipients, and the message data size in bytes.
+
+   ```sh
+   npm run ccipReceiverEstimateGas
    ```
 
 ### Monitoring and Tracking
@@ -271,7 +298,9 @@ Chainlink-related parameters, including CCIP Router addresses, LINK Token addres
 - [Mainnets](https://docs.chain.link/ccip/supported-networks/v1_2_0/mainnet)
 - [Testnets](https://docs.chain.link/ccip/supported-networks/v1_2_0/testnet)
 
-While sending tokens from Layer 1 to Layer 2 and back, ensure that the gas limit is correctly set. 
-This parameter should align with the number of token recipients. 
-To estimate the gas limit for the `ccipReceive()` method on a destination chain, you can follow the [guide](https://docs.chain.link/ccip/tutorials/ccipreceive-gaslimit) provided by Chainlink.
-Also, refer to the [CCIP Service Limits](https://docs.chain.link/ccip/service-limits) when setting the gas limit and sending a CCIP message.
+While sending tokens from Layer 1 to Layer 2 and back, ensure that the gas limit is correctly set. This parameter should align with the number of token recipients. 
+You can estimate the gas usage and message data size using the dedicated script: [**Estimate CCIP Receiver gas usage**](#3-estimate-ccip-receiver-gas-usage).
+
+Alternatively, you can follow the documentation and tutorials provided by Chainlink: https://docs.chain.link/ccip/tutorials/ccipreceive-gaslimit.
+
+Please refer to the [CCIP Service Limits](https://docs.chain.link/ccip/service-limits) when setting the gas limit and sending a CCIP message.
