@@ -2,27 +2,6 @@
 pragma solidity ^0.8.24;
 
 interface IRareBridge {
-  /*//////////////////////////////////////////////////////////////////////////
-                              Structs
-  //////////////////////////////////////////////////////////////////////////*/
-
-  /// @notice The message parameters for sending to a destination chain.
-  /// @param _destinationChainSelector The selector of the destination chain.
-  /// @param _destinationChainRecipient The address of the recipient on the destination chain.
-  /// @param _to The address of the token recipient on the destination chain.
-  /// @param _amount The amount of RARE tokens to send.
-  /// @param _data The encoded calldata to send to the recipient.
-  /// @param _extraArgs The encoded extra arguments for the message.
-  /// @param _payFeesInLink Whether to pay the fees in LINK tokens.
-  struct SendParams {
-    uint64 destinationChainSelector;
-    address destinationChainRecipient;
-    address to;
-    uint256 amount;
-    bytes data;
-    bytes extraArgs;
-    bool payFeesInLink;
-  }
 
   /*//////////////////////////////////////////////////////////////////////////
                               Events
