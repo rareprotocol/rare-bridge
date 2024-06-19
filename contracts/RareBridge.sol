@@ -93,6 +93,7 @@ abstract contract RareBridge is
     bool allowed
   ) external onlyOwner {
     allowlistedRecipients[_destinationChainSelector][_destinationChainRecipient] = allowed;
+    emit RecipientAllowlisted(_destinationChainSelector, _destinationChainRecipient, allowed);
   }
 
   /// @notice Updates the allowlist status of a sender for transactions.
@@ -102,6 +103,7 @@ abstract contract RareBridge is
   /// @dev This function can only be called by the owner.
   function allowlistSender(uint64 _sourceChainSelector, address _sourceChainSender, bool allowed) external onlyOwner {
     allowlistedSenders[_sourceChainSelector][_sourceChainSender] = allowed;
+    emit SenderAllowlisted(_sourceChainSelector, _sourceChainSender, allowed);
   }
 
   /// @notice Set sendTokens() extra args per destination chain.
@@ -110,6 +112,7 @@ abstract contract RareBridge is
   /// @dev This function can only be called by the owner.
   function setExtraArgs(uint64 _destinationChainSelector, uint256 _gasLimit) external onlyOwner {
     extraArgsPerChain[_destinationChainSelector] = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: _gasLimit}));
+    emit ExtraArgsSet(_destinationChainSelector, extraArgsPerChain[_destinationChainSelector]);
   }
 
   /// @notice Calculates the estimated fee for sending a message.

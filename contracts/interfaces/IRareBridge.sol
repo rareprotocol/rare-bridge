@@ -30,6 +30,27 @@ interface IRareBridge {
     address indexed sourceChainSender
   );
 
+  /// @notice Emitted when a recipient is allowlisted or removed from the allowlist.
+  /// @param destinationChainSelector The selector of the destination chain.
+  /// @param destinationChainRecipient The address of the CCIP recipient on the destination chain.
+  /// @param allowed True if the recipient is allowlisted, false if removed from the allowlist.
+  event RecipientAllowlisted(
+    uint64 indexed destinationChainSelector,
+    address indexed destinationChainRecipient,
+    bool allowed
+  );
+
+  /// @notice Emitted when a sender is allowlisted or removed from the allowlist.
+  /// @param sourceChainSelector The selector of the source chain.
+  /// @param sourceChainSender The address of the CCIP sender on the source chain.
+  /// @param allowed True if the sender is allowlisted, false if removed from the allowlist.
+  event SenderAllowlisted(uint64 indexed sourceChainSelector, address indexed sourceChainSender, bool allowed);
+
+  /// @notice Emitted when the extra arguments for a destination chain are set.
+  /// @param destinationChainSelector The selector of the destination chain.
+  /// @param extraArgs The extra arguments set for the destination chain.
+  event ExtraArgsSet(uint64 indexed destinationChainSelector, bytes extraArgs);
+
   /*//////////////////////////////////////////////////////////////////////////
                             Custom Errors
   //////////////////////////////////////////////////////////////////////////*/

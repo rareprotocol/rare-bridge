@@ -5,6 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {CCIPLocalSimulator, IRouterClient, LinkToken, BurnMintERC677Helper} from "@chainlink/local/src/ccip/CCIPLocalSimulator.sol";
 import {MockCCIPRouter} from "@chainlink/contracts-ccip/src/v0.8/ccip/test/mocks/MockRouter.sol";
 import {EVM2EVMOnRamp} from "@chainlink/contracts-ccip/src/v0.8/ccip/onRamp/EVM2EVMOnRamp.sol";
+import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -115,6 +116,8 @@ contract RareTokenBridgeTest is Test {
   function testAllowlistRecipient() public {
     address receiver = address(7);
     vm.prank(admin);
+    vm.expectEmit(true, true, false, true, address(rareBridge));
+    emit IRareBridge.RecipientAllowlisted(chainSelector, receiver, true);
     rareBridge.allowlistRecipient(chainSelector, receiver, true);
     assertTrue(rareBridge.allowlistedRecipients(chainSelector, receiver));
   }
@@ -122,8 +125,20 @@ contract RareTokenBridgeTest is Test {
   function testAllowlistSender() public {
     address sender = address(8);
     vm.prank(admin);
+    vm.expectEmit(true, true, false, true, address(rareBridge));
+    emit IRareBridge.SenderAllowlisted(chainSelector, sender, true);
     rareBridge.allowlistSender(chainSelector, sender, true);
     assertTrue(rareBridge.allowlistedSenders(chainSelector, sender));
+  }
+
+  function testSetExtraArgs() public {
+    uint256 gasLimit = 300_000;
+    bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit}));
+    vm.prank(admin);
+    vm.expectEmit(true, false, false, true, address(rareBridge));
+    emit IRareBridge.ExtraArgsSet(chainSelector, extraArgs);
+    rareBridge.setExtraArgs(chainSelector, gasLimit);
+    assertEq(rareBridge.extraArgsPerChain(chainSelector), extraArgs);
   }
 
   function testPauseAndUnpause() public {
@@ -488,7 +503,12 @@ contract RareTokenBridgeTest is Test {
     );
 
     vm.expectRevert(
-      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(rareBridge), 0, totalAmountToSend)
+      abi.encodeWithSelector(
+        IERC20Errors.ERC20InsufficientAllowance.selector,
+        address(rareBridge),
+        0,
+        totalAmountToSend
+      )
     );
 
     rareBridge.send{value: 0}(chainSelector, address(rareBridgeL2), abi.encode(recipients, amounts), "", false);
