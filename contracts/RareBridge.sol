@@ -6,6 +6,7 @@ import {IAny2EVMMessageReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/i
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {OwnerIsCreator} from "@chainlink/contracts-ccip/src/v0.8/shared/access/OwnerIsCreator.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -26,6 +27,8 @@ abstract contract RareBridge is
   OwnableUpgradeable,
   UUPSUpgradeable
 {
+  using SafeERC20 for IERC20;
+
   // Mapping to keep track of allowlisted receivers per destination chain.
   mapping(uint64 => mapping(address => bool)) public allowlistedRecipients;
 
@@ -191,9 +194,7 @@ abstract contract RareBridge is
     fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
 
     if (_payFeesInLink) {
-      if (!IERC20(s_linkToken).transferFrom(msg.sender, address(this), fee)) {
-        revert FailedToTransferLink();
-      }
+      IERC20(s_linkToken).safeTransferFrom(msg.sender, address(this), fee);
       IERC20(s_linkToken).approve(i_ccipRouter, fee);
       messageId = IRouterClient(i_ccipRouter).ccipSend(_destinationChainSelector, message);
     } else {

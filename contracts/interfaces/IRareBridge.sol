@@ -73,9 +73,6 @@ interface IRareBridge {
   /// @notice Emitted when _handleTokens returns false, it either failed or not implemented.
   error FailedToHandleTokens(address from, address to, uint256 amount);
 
-  /// @notice Emitted when the LINK token balance is not enough to cover fees.
-  error FailedToTransferLink();
-
   /// @notice Emitted when the ETH sent is not enough to cover fees.
   error InsufficientEthForFee(uint256 ethSent, uint256 fee);
 
