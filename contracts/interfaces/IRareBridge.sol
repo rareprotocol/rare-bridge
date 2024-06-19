@@ -81,4 +81,7 @@ interface IRareBridge {
 
   /// @notice Emitted when recipients array length does not match amounts array length.
   error RecipientsAndAmountsLengthMismatch();
+
+  /// @notice Emitted when the transfer of excess msg.value to the recipient fails.
+  error RefundFailed(address recipient, uint256 amount);
 }

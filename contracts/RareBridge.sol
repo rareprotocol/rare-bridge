@@ -203,6 +203,11 @@ abstract contract RareBridge is
         revert InsufficientEthForFee(msg.value, fee);
       }
       messageId = IRouterClient(i_ccipRouter).ccipSend{value: fee}(_destinationChainSelector, message);
+      // Return the excess msg.value to the user if needed
+      if (msg.value > fee) {
+        (bool success, ) = msg.sender.call{value: msg.value - fee}("");
+        if (!success) revert RefundFailed(msg.sender, msg.value - fee);
+      }
     }
   }
 

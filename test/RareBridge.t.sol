@@ -579,6 +579,43 @@ contract RareTokenBridgeTest is Test {
       payFeesInLink
     );
   }
+
+  function testSendWithExcessValue() public {
+    uint256 excessValue = 1 ether;
+
+    (address[] memory recipients, uint256[] memory amounts) = prepareScenario(2);
+
+    uint256 totalAmountToSend = 0;
+    for (uint256 i = 0; i < amounts.length; ++i) {
+      totalAmountToSend += amounts[i];
+    }
+
+    bool payFeesInLink = false;
+
+    vm.startPrank(tokenOwner);
+
+    uint256 fee = rareBridge.getFee(
+      chainSelector,
+      address(rareBridgeL2),
+      abi.encode(recipients, amounts),
+      "",
+      payFeesInLink
+    );
+
+    vm.deal(address(tokenOwner), fee + excessValue);
+
+    rareToken.approve(address(rareBridge), totalAmountToSend);
+
+    rareBridge.send{value: fee + excessValue}(
+      chainSelector,
+      address(rareBridgeL2),
+      abi.encode(recipients, amounts),
+      "",
+      payFeesInLink
+    );
+
+    assertEq(tokenOwner.balance, excessValue);
+  }
 }
 
 // We do not need to import actual implementation of the RareToken contract for testing purposes.
