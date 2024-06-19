@@ -64,20 +64,11 @@ interface IRareBridge {
   /// @notice Emitted when ETH transfer fails.
   error FailedToWithdrawEth(address sender, address beneficiary, uint256 amount);
 
-  /// @notice Emitted when balance is not enough.
-  error NotEnoughBalance(uint256 balance, uint256 required);
-
   /// @notice Emitted when the pair of chain selector and account is not in the allowlist.
   error NotInAllowlist(uint64 chainSelector, address account);
 
-  /// @notice Emitted when _handleTokens returns false, it either failed or not implemented.
-  error FailedToHandleTokens(address from, address to, uint256 amount);
-
   /// @notice Emitted when the ETH sent is not enough to cover fees.
   error InsufficientEthForFee(uint256 ethSent, uint256 fee);
-
-  /// @notice Emitted when the RARE token allowance is not enough to send.
-  error InsufficientRareAllowanceForSend(uint256 allowance, uint256 amount);
 
   /// @notice Emitted when recipients array length does not match amounts array length.
   error RecipientsAndAmountsLengthMismatch();
