@@ -100,7 +100,7 @@ The script will:
 5. Verify the deployed contract on Etherscan using the provided API key.
 
    ```sh
-   npm run deployBridgeL1
+   npm run deployBridge:L1
    ```
 
    > **Note**  
@@ -130,7 +130,7 @@ The script will:
 8. Verify the deployed contracts on Etherscan using the provided API key.
 
    ```sh
-   npm run deployAndConfigureBridgeL2
+   npm run deployAndConfigureBridge:L2
    ```
 
    > **Note**  
@@ -155,7 +155,7 @@ The script will:
 4. Broadcast the transactions to the network using Forge with the specified RPC URL and private key.
 
    ```sh
-   npm run configureBridgeL1
+   npm run configureBridge:L1
    ```
 
 ### Interactions and Testing
@@ -183,7 +183,7 @@ The script will:
 6. Broadcast the transactions to the network using Forge with the specified RPC URL and private key.
    
    ```sh
-   npm run sendTokensL1L2
+   npm run sendTokens:L1:L2
    ```
 
 #### 2. **Send Tokens from Layer 2 to Layer 1**
@@ -209,7 +209,7 @@ The script will:
 6. Broadcast the transactions to the network using Forge with the specified RPC URL and private key.
    
    ```sh
-   npm run sendTokensL2L1
+   npm run sendTokens:L2:L1
    ```
 
 #### 3. **Estimate CCIP Receiver gas usage**
