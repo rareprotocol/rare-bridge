@@ -52,9 +52,6 @@ interface IRareBridge {
   /// @notice Emitted when _handleTokens returns false, it either failed or not implemented.
   error FailedToHandleTokens(address from, address to, uint256 amount);
 
-  /// @notice Emitted when the LINK token allowance is not enough to cover fees.
-  error InsufficientLinkAllowanceForFee(uint256 allowance, uint256 fee);
-
   /// @notice Emitted when the LINK token balance is not enough to cover fees.
   error FailedToTransferLink();
 

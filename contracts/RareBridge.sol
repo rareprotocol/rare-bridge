@@ -163,12 +163,6 @@ abstract contract RareBridge is
       totalAmount += amounts[i];
     }
 
-    // Check for sufficient allowance and transfer the RARE tokens
-    uint256 allowance = IERC20(s_rareToken).allowance(msg.sender, address(this));
-    if (allowance < totalAmount) {
-      revert InsufficientRareAllowanceForSend(allowance, totalAmount);
-    }
-
     _handleTokensOnSend(msg.sender, totalAmount);
 
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
@@ -194,10 +188,6 @@ abstract contract RareBridge is
     fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
 
     if (_payFeesInLink) {
-      uint256 linkAllowance = IERC20(s_linkToken).allowance(msg.sender, address(this));
-      if (linkAllowance < fee) {
-        revert InsufficientLinkAllowanceForFee(linkAllowance, fee);
-      }
       if (!IERC20(s_linkToken).transferFrom(msg.sender, address(this), fee)) {
         revert FailedToTransferLink();
       }
@@ -247,7 +237,7 @@ abstract contract RareBridge is
   /// @notice Allows the contract owner to withdraw the entire balance of Ether from the contract.
   /// @param _beneficiary The address to which the Ether should be sent.
   /// @dev This function reverts if there are no funds to withdraw or if the transfer fails.
-  function withdraw(address payable _beneficiary) public onlyOwner {
+  function withdraw(address payable _beneficiary) external onlyOwner {
     // Retrieve the balance of this contract
     uint256 amount = address(this).balance;
 
@@ -261,11 +251,11 @@ abstract contract RareBridge is
     if (!sent) revert FailedToWithdrawEth(msg.sender, _beneficiary, amount);
   }
 
-  function pause() public onlyOwner {
+  function pause() external onlyOwner {
     _pause();
   }
 
-  function unpause() public onlyOwner {
+  function unpause() external onlyOwner {
     _unpause();
   }
 

@@ -5,6 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {CCIPLocalSimulator, IRouterClient, LinkToken, BurnMintERC677Helper} from "@chainlink/local/src/ccip/CCIPLocalSimulator.sol";
 import {MockCCIPRouter} from "@chainlink/contracts-ccip/src/v0.8/ccip/test/mocks/MockRouter.sol";
 import {EVM2EVMOnRamp} from "@chainlink/contracts-ccip/src/v0.8/ccip/onRamp/EVM2EVMOnRamp.sol";
+import "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -487,7 +488,7 @@ contract RareTokenBridgeTest is Test {
     );
 
     vm.expectRevert(
-      abi.encodeWithSelector(IRareBridge.InsufficientRareAllowanceForSend.selector, 0, totalAmountToSend)
+      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(rareBridge), 0, totalAmountToSend)
     );
 
     rareBridge.send{value: 0}(chainSelector, address(rareBridgeL2), abi.encode(recipients, amounts), "", false);
