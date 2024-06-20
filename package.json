@@ -1,0 +1,32 @@
+{
+  "name": "rare-bridge",
+  "version": "1.0.0",
+  "description": "RARE Token Bridge",
+  "license": "MIT",
+  "repository": "git@github.com:rareprotocol/rare-bridge",
+  "author": "koteld",
+  "homepage": "https://github.com/rareprotocol/rare-bridge#README",
+  "bugs": {
+    "url": "https://github.com/rareprotocol/rare-bridge/issues"
+  },
+  "scripts": {
+    "build": "forge build",
+    "lint": "prettier --check 'contracts/**/*.sol' 'test/**/*.sol' 'script/**/*.sol' && npx solhint 'contracts/**/*.sol'",
+    "prettier": "prettier --write 'contracts/**/*.sol' 'test/**/*.sol' 'script/**/*.sol'",
+    "test": "forge test -vvv --gas-report",
+    "deployRareBridge:L1": "source .env.L1 && cp .env.deployBridgeL1 .env && forge script script/RareBridgeDeployL1.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY",
+    "deployAndConfigureRareBridge:L2": "source .env.L2 && cp .env.deployAndConfigureBridgeL2 .env && forge script script/RareBridgeDeployAndConfigureL2.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY",
+    "configureRareBridge:L1": "source .env.L1 && cp .env.configureBridgeL1 .env && forge script script/RareBridgeConfigureL1.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast",
+    "sendTokens:L1:L2": "source .env.L1 && cp .env.sendTokensL1L2 .env && forge script script/RareBridgeSend.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast",
+    "sendTokens:L2:L1": "source .env.L2 && cp .env.sendTokensL2L1 .env && forge script script/RareBridgeSend.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast",
+    "sendAllowList:L2": "source .env && forge script script/RareBridgeAllowlist.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast"
+    "ccipReceiverEstimateGas": "cp .env.ccipReceiveEstimateGas .env && forge script script/CCIPReceiverEstimateGas.s.sol"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.8",
+    "prettier-plugin-solidity": "^1.3.1",
+    "solhint": "^5.0.1",
+    "solhint-plugin-prettier": "^0.0.5",
+    "solidity-coverage": "^0.8.12"
+  }
+}

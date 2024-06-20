@@ -1,0 +1,12 @@
+[profile.default]
+src = 'contracts'
+out = 'out'
+libs = ['lib']
+optimizer = true
+optimizer_runs = 999
+solc_version = '0.8.24'
+auto_detect_solc = false
+evm_version = 'cancun'
+
+[fuzz]
+runs = 50
