@@ -168,8 +168,8 @@ This script uses environment variables specified in [`.env.sendTokensL1L2`](.env
 - `RARE_TOKEN_ADDRESS` - address of the Rare Token on the source chain.
 - `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the source chain.
 - `RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
-- `CORRESPONDENT_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the destination chain.
-- `CORRESPONDENT_CHAIN_SELECTOR` - chain selector for the destination chain.
+- `CORRESPONDING_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the destination chain.
+- `CORRESPONDING_CHAIN_SELECTOR` - chain selector for the destination chain.
 - `AMOUNTS` - comma-separated array of token amounts to send.
 - `RECIPIENTS` - comma-separated array of recipient addresses.
 - `PAY_FEES_IN_LINK` - boolean indicating whether to pay fees in LINK tokens (true) or in the native cryptocurrency (false)
@@ -194,8 +194,8 @@ This script uses environment variables specified in [`.env.sendTokensL2L1`](.env
 - `RARE_TOKEN_ADDRESS` - address of the Rare Token on the destination chain.
 - `LINK_TOKEN_ADDRESS` - address of the Chainlink LINK token on the destination chain.
 - `RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the destination chain.
-- `CORRESPONDENT_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
-- `CORRESPONDENT_CHAIN_SELECTOR` - chain selector for the source chain.
+- `CORRESPONDING_RARE_BRIDGE_ADDRESS` - address of the Rare Bridge contract on the source chain.
+- `CORRESPONDING_CHAIN_SELECTOR` - chain selector for the source chain.
 - `AMOUNTS` - comma-separated array of token amounts to send.
 - `RECIPIENTS` - comma-separated array of recipient addresses.
 - `PAY_FEES_IN_LINK` - boolean indicating whether to pay fees in LINK tokens (true) or in the native cryptocurrency (false)
