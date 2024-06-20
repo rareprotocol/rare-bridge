@@ -6,11 +6,12 @@ import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.s
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+// Reference: "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol"
 abstract contract CCIPReceiverUpgradable is Initializable, IAny2EVMMessageReceiver, IERC165 {
   address internal i_ccipRouter;
 
   // Replace constructor with an initializer function
-  function __CCIPReceiver_init(address _router) internal initializer {
+  function __CCIPReceiver_init(address _router) internal onlyInitializing {
     if (_router == address(0)) revert InvalidRouter(_router);
     i_ccipRouter = _router;
   }

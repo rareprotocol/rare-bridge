@@ -22,10 +22,14 @@ contract SuperRareTokenL2 is
   bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
   bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor() {
+    _disableInitializers();
+  }
+
   /// @notice Initializes the contract with the provided admin and minter addresses.
   /// @param admin The admin address.
-  /// @param minter The minter address.
-  function initialize(address admin, address minter) public initializer {
+  function initialize(address admin) public initializer {
     __ERC20_init("SuperRare", "RARE");
     __ERC20Burnable_init();
     __ERC20Pausable_init();
@@ -35,7 +39,6 @@ contract SuperRareTokenL2 is
 
     _grantRole(DEFAULT_ADMIN_ROLE, admin);
     _grantRole(PAUSER_ROLE, admin);
-    _grantRole(MINTER_ROLE, minter);
     _grantRole(UPGRADER_ROLE, admin);
   }
 
