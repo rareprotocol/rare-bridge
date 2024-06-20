@@ -6,6 +6,7 @@ import {IAny2EVMMessageReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/i
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {OwnerIsCreator} from "@chainlink/contracts-ccip/src/v0.8/shared/access/OwnerIsCreator.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -26,6 +27,8 @@ abstract contract RareBridge is
   OwnableUpgradeable,
   UUPSUpgradeable
 {
+  using SafeERC20 for IERC20;
+
   // Mapping to keep track of allowlisted receivers per destination chain.
   mapping(uint64 => mapping(address => bool)) public allowlistedRecipients;
 
@@ -93,6 +96,7 @@ abstract contract RareBridge is
     bool allowed
   ) external onlyOwner {
     allowlistedRecipients[_destinationChainSelector][_destinationChainRecipient] = allowed;
+    emit RecipientAllowlisted(_destinationChainSelector, _destinationChainRecipient, allowed);
   }
 
   /// @notice Updates the allowlist status of a sender for transactions.
@@ -102,6 +106,7 @@ abstract contract RareBridge is
   /// @dev This function can only be called by the owner.
   function allowlistSender(uint64 _sourceChainSelector, address _sourceChainSender, bool allowed) external onlyOwner {
     allowlistedSenders[_sourceChainSelector][_sourceChainSender] = allowed;
+    emit SenderAllowlisted(_sourceChainSelector, _sourceChainSender, allowed);
   }
 
   /// @notice Set sendTokens() extra args per destination chain.
@@ -110,6 +115,7 @@ abstract contract RareBridge is
   /// @dev This function can only be called by the owner.
   function setExtraArgs(uint64 _destinationChainSelector, uint256 _gasLimit) external onlyOwner {
     extraArgsPerChain[_destinationChainSelector] = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: _gasLimit}));
+    emit ExtraArgsSet(_destinationChainSelector, extraArgsPerChain[_destinationChainSelector]);
   }
 
   /// @notice Calculates the estimated fee for sending a message.
@@ -163,12 +169,6 @@ abstract contract RareBridge is
       totalAmount += amounts[i];
     }
 
-    // Check for sufficient allowance and transfer the RARE tokens
-    uint256 allowance = IERC20(s_rareToken).allowance(msg.sender, address(this));
-    if (allowance < totalAmount) {
-      revert InsufficientRareAllowanceForSend(allowance, totalAmount);
-    }
-
     _handleTokensOnSend(msg.sender, totalAmount);
 
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
@@ -194,13 +194,7 @@ abstract contract RareBridge is
     fee = IRouterClient(i_ccipRouter).getFee(_destinationChainSelector, message);
 
     if (_payFeesInLink) {
-      uint256 linkAllowance = IERC20(s_linkToken).allowance(msg.sender, address(this));
-      if (linkAllowance < fee) {
-        revert InsufficientLinkAllowanceForFee(linkAllowance, fee);
-      }
-      if (!IERC20(s_linkToken).transferFrom(msg.sender, address(this), fee)) {
-        revert FailedToTransferLink();
-      }
+      IERC20(s_linkToken).safeTransferFrom(msg.sender, address(this), fee);
       IERC20(s_linkToken).approve(i_ccipRouter, fee);
       messageId = IRouterClient(i_ccipRouter).ccipSend(_destinationChainSelector, message);
     } else {
@@ -209,6 +203,11 @@ abstract contract RareBridge is
         revert InsufficientEthForFee(msg.value, fee);
       }
       messageId = IRouterClient(i_ccipRouter).ccipSend{value: fee}(_destinationChainSelector, message);
+      // Return the excess msg.value to the user if needed
+      if (msg.value > fee) {
+        (bool success, ) = msg.sender.call{value: msg.value - fee}("");
+        if (!success) revert RefundFailed(msg.sender, msg.value - fee);
+      }
     }
   }
 
@@ -247,7 +246,7 @@ abstract contract RareBridge is
   /// @notice Allows the contract owner to withdraw the entire balance of Ether from the contract.
   /// @param _beneficiary The address to which the Ether should be sent.
   /// @dev This function reverts if there are no funds to withdraw or if the transfer fails.
-  function withdraw(address payable _beneficiary) public onlyOwner {
+  function withdraw(address payable _beneficiary) external onlyOwner {
     // Retrieve the balance of this contract
     uint256 amount = address(this).balance;
 
@@ -261,11 +260,11 @@ abstract contract RareBridge is
     if (!sent) revert FailedToWithdrawEth(msg.sender, _beneficiary, amount);
   }
 
-  function pause() public onlyOwner {
+  function pause() external onlyOwner {
     _pause();
   }
 
-  function unpause() public onlyOwner {
+  function unpause() external onlyOwner {
     _unpause();
   }
 

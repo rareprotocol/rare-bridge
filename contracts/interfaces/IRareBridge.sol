@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 interface IRareBridge {
-
   /*//////////////////////////////////////////////////////////////////////////
                               Events
   //////////////////////////////////////////////////////////////////////////*/
@@ -31,6 +30,27 @@ interface IRareBridge {
     address indexed sourceChainSender
   );
 
+  /// @notice Emitted when a recipient is allowlisted or removed from the allowlist.
+  /// @param destinationChainSelector The selector of the destination chain.
+  /// @param destinationChainRecipient The address of the CCIP recipient on the destination chain.
+  /// @param allowed True if the recipient is allowlisted, false if removed from the allowlist.
+  event RecipientAllowlisted(
+    uint64 indexed destinationChainSelector,
+    address indexed destinationChainRecipient,
+    bool allowed
+  );
+
+  /// @notice Emitted when a sender is allowlisted or removed from the allowlist.
+  /// @param sourceChainSelector The selector of the source chain.
+  /// @param sourceChainSender The address of the CCIP sender on the source chain.
+  /// @param allowed True if the sender is allowlisted, false if removed from the allowlist.
+  event SenderAllowlisted(uint64 indexed sourceChainSelector, address indexed sourceChainSender, bool allowed);
+
+  /// @notice Emitted when the extra arguments for a destination chain are set.
+  /// @param destinationChainSelector The selector of the destination chain.
+  /// @param extraArgs The extra arguments set for the destination chain.
+  event ExtraArgsSet(uint64 indexed destinationChainSelector, bytes extraArgs);
+
   /*//////////////////////////////////////////////////////////////////////////
                             Custom Errors
   //////////////////////////////////////////////////////////////////////////*/
@@ -44,27 +64,15 @@ interface IRareBridge {
   /// @notice Emitted when ETH transfer fails.
   error FailedToWithdrawEth(address sender, address beneficiary, uint256 amount);
 
-  /// @notice Emitted when balance is not enough.
-  error NotEnoughBalance(uint256 balance, uint256 required);
-
   /// @notice Emitted when the pair of chain selector and account is not in the allowlist.
   error NotInAllowlist(uint64 chainSelector, address account);
-
-  /// @notice Emitted when _handleTokens returns false, it either failed or not implemented.
-  error FailedToHandleTokens(address from, address to, uint256 amount);
-
-  /// @notice Emitted when the LINK token allowance is not enough to cover fees.
-  error InsufficientLinkAllowanceForFee(uint256 allowance, uint256 fee);
-
-  /// @notice Emitted when the LINK token balance is not enough to cover fees.
-  error FailedToTransferLink();
 
   /// @notice Emitted when the ETH sent is not enough to cover fees.
   error InsufficientEthForFee(uint256 ethSent, uint256 fee);
 
-  /// @notice Emitted when the RARE token allowance is not enough to send.
-  error InsufficientRareAllowanceForSend(uint256 allowance, uint256 amount);
-
   /// @notice Emitted when recipients array length does not match amounts array length.
   error RecipientsAndAmountsLengthMismatch();
+
+  /// @notice Emitted when the transfer of excess msg.value to the recipient fails.
+  error RefundFailed(address recipient, uint256 amount);
 }
