@@ -39,6 +39,11 @@ contract DeployRareBridgeBurnAndMintProxy is Script {
       )
     );
 
+    console2.log("Deployed RareBridgeBurnAndMint Proxy at address: ", rareBridgeBurnAndMint_proxy);
+
+    // Set Minting
+    rareTokenL2SetMinter(rareToken, rareBridgeBurnAndMint_proxy);
+
     // Allowlists
     rareBridgeAllowlist(rareBridgeBurnAndMint_proxy, vm.envAddress("CORRESPONDENT_RARE_BRIDGE_ADDRESS"), vm.envAddress("CORRESPONDENT_CHAIN_SELECTOR"));
     rareBridgeSetExtraArgs(rareBridgeBurnAndMint_proxy, vm.envAddress("CORRESPONDENT_CHAIN_SELECTOR"), vm.envAddress("CORRESPONDENT_CHAIN_GAS_LIMIT"));
