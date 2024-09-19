@@ -38,5 +38,9 @@ contract DeployRareBridgeBurnAndMintProxy is Script {
         abi.encodeCall(RareBridge.initialize, (address(router), address(linkToken), address(rareToken), admin))
       )
     );
+
+    // Allowlists
+    rareBridgeAllowlist(rareBridgeBurnAndMint_proxy, vm.envAddress("CORRESPONDENT_RARE_BRIDGE_ADDRESS"), vm.envAddress("CORRESPONDENT_CHAIN_SELECTOR"));
+    rareBridgeSetExtraArgs(rareBridgeBurnAndMint_proxy, vm.envAddress("CORRESPONDENT_CHAIN_SELECTOR"), vm.envAddress("CORRESPONDENT_CHAIN_GAS_LIMIT"));
   }
 }
