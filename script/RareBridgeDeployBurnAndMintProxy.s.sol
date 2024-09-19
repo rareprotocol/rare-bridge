@@ -16,12 +16,12 @@ contract DeployRareBridgeBurnAndMintProxy is Script {
 
     vm.startBroadcast();
 
-    deployRareBridgeBurnAndMint(implementation, msg.sender, router, linkToken, rareToken);
+    deployRareBridgeBurnAndMintFix(implementation, msg.sender, router, linkToken, rareToken);
 
     vm.stopBroadcast();
   }
 
-  function deployRareBridgeBurnAndMint(
+  function deployRareBridgeBurnAndMintFix(
     address implementation,
     address admin,
     address router,
